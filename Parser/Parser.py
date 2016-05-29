@@ -9,16 +9,20 @@ backupBlueriqRe = "Caused by:\s([^:]*):\s(.*)"
 standardReObj = re.compile(str(standardBlueriqRe))
 backupReObj = re.compile(str(backupBlueriqRe))
 
-
 class Parser:
 
-    def parseLog(self, lines):
-        self.cleanStuff()
+    def __init__(self):
+        self.parsedRecords = []
+        self.lastError = ''
+
+    def addLogLine(self, text):
+        newentry = LogEntry( len(self.parsedRecords) + 1, logLine=text)
+        self.parsedRecords.append(newentry)
+
+    def parseLog(self):
         try:
-            linecount = 0
-            for line in lines:
-                linecount += 1
-                match = standardReObj.match(line)
+            for logentry in self.parsedRecords:
+                match = standardReObj.match(logentry.logLine)
                 if match:
                     logDate = match.groups()[0]
                     logTime = match.groups()[1]
@@ -31,20 +35,18 @@ class Parser:
                     logBranch = match.groups()[8]
                     logPage = match.groups()[9]
                     logMessage = match.groups()[10]
-                    logEntry = BlueriqLogEntry(linecount, True, logDate, logTime, logMilliseconds, logSeverity,
-                                               logJavaMethod, logSessionId, logUser, logProject, logBranch, logPage,
-                                               logMessage, line)
+                    logentry.Update(True, logDate, logTime, logMilliseconds, logSeverity,
+                                        logJavaMethod, logSessionId, logUser, logProject, logBranch, logPage,
+                                        logMessage)
                 else:
-                    match = backupReObj.match(line)
+                    match = backupReObj.match(logentry.logLine)
                     if match:
                         logJavaMethod = match.groups()[0]
                         logMessage = match.groups()[1]
-                        logEntry = BlueriqLogEntry(linecount, True, logSeverity ="Caused by",
-                                                   logJavaMethod=logJavaMethod, logMessage=logMessage, logLine=line)
+                        logentry.Update(successfullyParsed=True, logSeverity ="Caused by",
+                                        logJavaMethod=logJavaMethod, logMessage=logMessage)
                     else:
-                        logEntry = BlueriqLogEntry(linecount, False, logLine=line)
-
-                self.parsedRecords.append(logEntry)
+                        logentry.Update(successfullyParsed=False)
         except IndexError as exc:
             self.lastError = 'IndexError: ' + str(exc)
         except:
@@ -58,11 +60,14 @@ class Parser:
         self.lastError = ''
 
 
-class BlueriqLogEntry:
-    def __init__(self, index, successfullyParsed, logDate=None, logTime=None, logMilliseconds=None, logSeverity=None,
-                 logJavaMethod=None, logSessionId=None, logUser=None, logProject=None, logBranch=None, logPage=None,
-                 logMessage=None, logLine=None):
+class LogEntry:
+    def __init__(self, index, logLine ):
         self.index = index
+        self.logLine = logLine
+
+    def Update(self, successfullyParsed = False, logDate=None, logTime=None, logMilliseconds=None, logSeverity=None,
+                 logJavaMethod=None, logSessionId=None, logUser=None, logProject=None, logBranch=None, logPage=None,
+                 logMessage=None):
         self.successfullyParsed = successfullyParsed
         self.logDate = logDate
         self.logTime = logTime
@@ -75,4 +80,3 @@ class BlueriqLogEntry:
         self.logBranch = logBranch
         self.logPage = logPage
         self.logMessage = logMessage
-        self.logLine = logLine

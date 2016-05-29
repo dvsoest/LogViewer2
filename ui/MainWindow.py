@@ -5,10 +5,8 @@ Module implementing MainWindow.
 """
 
 from PyQt5.QtWidgets import QMainWindow,  QFileDialog, QTableWidgetItem
-from PyQt5.QtCore import pyqtSlot
-
-
-from Parser import Parser
+from PyQt5.QtCore import pyqtSlot, Qt
+#from PyQt5.QtWidgets import
 
 from LogSource import LogSource
 
@@ -34,21 +32,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """
         self.ParseAndShow()
 
-    def ParseAndShow(self, fName):
+    def ParseAndShow(self, sourcename, log):
+        log.parseLog()
+        self.lblPath.setText("Parsed " + str(len(log.parsedRecords)) + " lines from " + sourcename)
         self.tvResult.clear()
-        #fName = self.lblPath.text()
-        logsource = LogSource.LogSource()
-        logsource.OpenLogFile(fName)
-        parser = Parser.Parser()
-        parser.parseLog(logsource.lines)
-        self.lblPath.setText("Parsed " + str(len(parser.parsedRecords)) + " lines from " + fName)
-        self.tvResult.setRowCount(len(parser.parsedRecords))
+        self.tvResult.setRowCount(len(log.parsedRecords))
         self.tvResult.setColumnCount(6)
 
-        if parser.lastError != '':
-            self.lblPath.setText(parser.lastError)
+        if log.lastError != '':
+            self.lblPath.setText(log.lastError)
         else:
-            for logRecord in parser.parsedRecords:
+            for logRecord in log.parsedRecords:
                 self.insertTableItem(logRecord.index - 1, 0, logRecord.logTime)
                 self.insertTableItem(logRecord.index - 1, 1, logRecord.logSeverity)
                 self.insertTableItem(logRecord.index - 1, 2, logRecord.logJavaMethod)
@@ -73,13 +67,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         dialog = QFileDialog()
         fName = dialog.getOpenFileName(self,"Select a Blueriq log file to parse", "", "*.log")
         # self.lblPath.setText(fName[0])
-        self.ParseAndShow(fName[0])
+        if fName[0] != '':
+            logsource = LogSource.LogSource()
+            log = logsource.OpenLogFile(fName[0])
+            self.ParseAndShow(fName[0], log)
 
     @pyqtSlot()
     def on_actionOpen_http_log_triggered(self):
         dialog = UrlDialog()
         url = dialog.showDialog()
         self.lblPath.setText(url)
+        logsource = LogSource.LogSource()
+        log = logsource.OpenHttpLog(url)
+        self.ParseAndShow(url,log)
 
     @pyqtSlot()
     def on_action_Quit_triggered(self):
