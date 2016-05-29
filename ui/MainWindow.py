@@ -6,7 +6,8 @@ Module implementing MainWindow.
 
 from PyQt5.QtWidgets import QMainWindow,  QFileDialog, QTableWidgetItem
 from PyQt5.QtCore import pyqtSlot, Qt
-#from PyQt5.QtWidgets import
+
+import re
 
 from LogSource import LogSource
 
@@ -24,33 +25,37 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """
         QMainWindow.__init__(self, parent)
         self.setupUi(self)
+        self.logsource = None
     
     @pyqtSlot()
     def on_btnParse_clicked(self):
         """
         Slot documentation goes here.
         """
-        self.ParseAndShow()
+        self.logsource.Reload()
+        #self.ParseAndShow(self.logsource.logsource, self.logsource, self.txtReToMatch.text())
 
-    def ParseAndShow(self, sourcename, log):
+    def ParseAndShow(self, sourcename, log, filtertext):
         log.parseLog()
         self.lblPath.setText("Parsed " + str(len(log.parsedRecords)) + " lines from " + sourcename)
         self.tvResult.clear()
         self.tvResult.setRowCount(len(log.parsedRecords))
         self.tvResult.setColumnCount(6)
+        filterre = re.compile(str(filtertext))
 
         if log.lastError != '':
             self.lblPath.setText(log.lastError)
         else:
-            for logRecord in log.parsedRecords:
-                self.insertTableItem(logRecord.index - 1, 0, logRecord.logTime)
-                self.insertTableItem(logRecord.index - 1, 1, logRecord.logSeverity)
-                self.insertTableItem(logRecord.index - 1, 2, logRecord.logJavaMethod)
-                self.insertTableItem(logRecord.index - 1, 3, logRecord.logUser)
-                self.insertTableItem(logRecord.index - 1, 4, logRecord.logPage)
-                self.insertTableItem(logRecord.index - 1, 5, logRecord.logMessage)
-                if not logRecord.successfullyParsed:
-                    self.tvResult.setRowHidden(logRecord.index - 1, True)
+            for logrecord in log.parsedRecords:
+                self.insertTableItem(logrecord.index - 1, 0, logrecord.logTime)
+                self.insertTableItem(logrecord.index - 1, 1, logrecord.logSeverity)
+                self.insertTableItem(logrecord.index - 1, 2, logrecord.logJavaMethod)
+                self.insertTableItem(logrecord.index - 1, 3, logrecord.logUser)
+                self.insertTableItem(logrecord.index - 1, 4, logrecord.logPage)
+                self.insertTableItem(logrecord.index - 1, 5, logrecord.logMessage)
+                recordinfilter=(filtertext == '') or (filterre.search(logrecord.logLine))
+                if not recordinfilter or not logrecord.successfullyParsed:
+                    self.tvResult.setRowHidden(logrecord.index - 1, True)
         self.tvResult.resizeColumnsToContents()
 
     def insertTableItem(self, row, column, text):
@@ -68,18 +73,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         fName = dialog.getOpenFileName(self,"Select a Blueriq log file to parse", "", "*.log")
         # self.lblPath.setText(fName[0])
         if fName[0] != '':
-            logsource = LogSource.LogSource()
-            log = logsource.OpenLogFile(fName[0])
-            self.ParseAndShow(fName[0], log)
+            self.logsource = LogSource.LogSource()
+            log = self.logsource.OpenLogFile(fName[0])
+            self.ParseAndShow(fName[0], log, self.txtReToMatch.text())
 
     @pyqtSlot()
     def on_actionOpen_http_log_triggered(self):
         dialog = UrlDialog()
         url = dialog.showDialog()
         self.lblPath.setText(url)
-        logsource = LogSource.LogSource()
-        log = logsource.OpenHttpLog(url)
-        self.ParseAndShow(url,log)
+        self.logsource = LogSource.LogSource()
+        log = self.logsource.OpenHttpLog(url)
+        self.ParseAndShow(url,log, self.txtReToMatch.text())
 
     @pyqtSlot()
     def on_action_Quit_triggered(self):
@@ -95,3 +100,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """
         # TODO: not implemented yet
         raise NotImplementedError
+
+    @pyqtSlot()
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key_F5:
+            self.logsource.Reload()

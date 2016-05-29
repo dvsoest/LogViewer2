@@ -4,15 +4,20 @@ import sys
 from urllib import request, error
 from Parser import Parser
 
-url = "http://hector:9000"
-
 class LogSource:
     def __init__(self):
         self.logsource = ""
         self.lines = []
+        self.sourcetype = None
+
+    def Reload(self):
+        self.lines = []
+        if self.sourcetype == 'file':
+            self.OpenLogFile(self.logsource)
+        elif self.sourcetype == 'http':
+            self.OpenHttpLog(self.logsource)
 
     def OpenLogFile(self, fileName):
-        self.CleanStuff()
         try:
             self.logsource = fileName
             input = open(fileName)
@@ -21,6 +26,7 @@ class LogSource:
             for line in self.lines:
                 log.addLogLine(line)
             input.close()
+            self.sourcetype = 'file'
         except IOError as exc:
             self.lastError = 'IOError: ' + str(exc)
         except:
@@ -30,7 +36,6 @@ class LogSource:
         return log
 
     def OpenHttpLog(self, url):
-        self.CleanStuff()
         try:
             filehandle = request.urlopen(url, None, 1)
             file = str(filehandle.read(), "utf-8")
@@ -38,6 +43,8 @@ class LogSource:
             log = Parser.Parser()
             for line in lines:
                 log.addLogLine(line)
+            self.logsource = url
+            self.sourcetype = 'http'
         except TimeoutError:
             print("Timeout occurred when accessing ", url)
         except error.URLError:
@@ -45,7 +52,3 @@ class LogSource:
         except:
             print("Unexpected error: ", sys.exc_info()[0])
         return log
-
-    def CleanStuff(self):
-        self.logsource = ""
-        self.lines = []
